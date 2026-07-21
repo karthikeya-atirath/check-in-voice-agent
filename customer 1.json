@@ -1,0 +1,13 @@
+{
+    "name": "aabid",
+    "packageid": "PKG014256",
+    "packageClassId": "1",
+    "start_date": "2026-07-31",
+    "end_date": "2026-08-10",
+    "trip_paid":"Y",
+    "tour_type": "delux",
+    "tour_name": "Fusion Europe",
+    "meeting_point": "Mumbai",
+    "destination": "Europe",
+    "reporting_time": "9 am"
+}

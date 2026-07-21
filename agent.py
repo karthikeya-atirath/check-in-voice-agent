@@ -2,7 +2,7 @@
 import os
 import sys
 import json
-import requests
+import httpx
 import asyncio
 
 from datetime import datetime, timezone, timedelta
@@ -15,9 +15,10 @@ from livekit.agents.beta.workflows import TaskGroup, TaskCompletedEvent
 from livekit import agents
 from livekit.agents import Agent, AgentTask, AgentSession, AgentServer, RunContext, StopResponse, inference, function_tool, room_io, JobContext, TurnHandlingOptions
 from livekit.agents.job import get_job_context
-from livekit.plugins import silero, ai_coustics, cartesia, deepgram, openai
+from livekit.plugins import silero, ai_coustics, cartesia, deepgram
 from pypdf import PdfReader
- 
+from llm_service import get_llm
+
 load_dotenv()
 
 server = AgentServer()
@@ -104,7 +105,7 @@ async def weather(location: str):
     "Use this tool when the call flow or user asks about weather in an area."
 
     try:
-        response = requests.get(
+        response = httpx.get(
             "https://api.weatherstack.com/current",
             params = {"access_key": "95ffa171c26da294a5f8e2e8f2c9e294", "query": location}
         )
@@ -129,15 +130,15 @@ async def answer_faqs(destination: str):
     """ Use this tool whenever the customer asks any destination related FAQ, local rules, Baggage allowance, travel tips, Pickup coordination,
     food, Emergency contacts, currency, best time to visit, or general destination question. """
     try:
-        response = requests.post(
+        response = httpx.post(
             "http://35.200.238.161:8000/v1/get_destination_details",
             json = {"search_term": destination},
             timeout=15
         )
 
         response.raise_for_status()
-    
-    except requests.RequestException as e:
+
+    except httpx.HTTPError as e:
         error_detail = response.text if "response" in locals() else str(e)
         return {"error": f"FAQ API failed: {str(e)}", "detail": error_detail}
     
@@ -154,14 +155,14 @@ async def get_package_data(packageid: str):
     "Use this to retrieve package details for a given package ID."
 
     try:
-        response = requests.post(
+        response = httpx.post(
             "http://35.200.238.161:8000/v1/get_raw_response",
             json={"packageId": packageid},
             timeout=15,
         )
         response.raise_for_status()
 
-    except requests.RequestException as e:
+    except httpx.HTTPError as e:
         return {"error": f"Package data tool failed: {str(e)}"}
 
     class_id = str(customer_data.get("packageClassId", ""))
@@ -858,7 +859,7 @@ async def entrypoint(ctx : JobContext):
     )
 
     session = AgentSession(
-        llm=openai.LLM(model="gpt-4o-mini"),
+        llm=get_llm(),
         tts=cartesia.TTS(model="sonic-2"),
         stt=deepgram.STT(model="nova-2"),
         tools = [weather, answer_faqs, get_package_data, retrieve_customer_trip_pdf, end_call, call_details],

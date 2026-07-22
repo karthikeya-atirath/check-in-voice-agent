@@ -51,7 +51,16 @@ def find_customer_trip_pdf() -> Path | None:
             return project_path
 
     project_pdfs = sorted(Path.cwd().glob("*.pdf"))
-    return project_pdfs[0] if project_pdfs else None
+    if not project_pdfs:
+        return None
+
+    tour_name = (customer_data.get("tour_name") or "").strip().lower()
+    if tour_name:
+        for pdf_path in project_pdfs:
+            if pdf_path.stem.strip().lower() == tour_name:
+                return pdf_path
+
+    return project_pdfs[0]
 
 @lru_cache(maxsize=1)
 def load_customer_trip_pdf_text() -> dict:
@@ -105,10 +114,11 @@ async def weather(location: str):
     "Use this tool when the call flow or user asks about weather in an area."
 
     try:
-        response = httpx.get(
-            "https://api.weatherstack.com/current",
-            params = {"access_key": "95ffa171c26da294a5f8e2e8f2c9e294", "query": location}
-        )
+        async with httpx.AsyncClient(timeout=15) as client:
+            response = await client.get(
+                "https://api.weatherstack.com/current",
+                params={"access_key": os.getenv("WEATHERSTACK_API_KEY", ""), "query": location},
+            )
         data = response.json()
 
         if "error" in data:
@@ -130,11 +140,11 @@ async def answer_faqs(destination: str):
     """ Use this tool whenever the customer asks any destination related FAQ, local rules, Baggage allowance, travel tips, Pickup coordination,
     food, Emergency contacts, currency, best time to visit, or general destination question. """
     try:
-        response = httpx.post(
-            "http://35.200.238.161:8000/v1/get_destination_details",
-            json = {"search_term": destination},
-            timeout=15
-        )
+        async with httpx.AsyncClient(timeout=15) as client:
+            response = await client.post(
+                "http://35.200.238.161:8000/v1/get_destination_details",
+                json={"search_term": destination},
+            )
 
         response.raise_for_status()
 
@@ -155,11 +165,11 @@ async def get_package_data(packageid: str):
     "Use this to retrieve package details for a given package ID."
 
     try:
-        response = httpx.post(
-            "http://35.200.238.161:8000/v1/get_raw_response",
-            json={"packageId": packageid},
-            timeout=15,
-        )
+        async with httpx.AsyncClient(timeout=15) as client:
+            response = await client.post(
+                "http://35.200.238.161:8000/v1/get_raw_response",
+                json={"packageId": packageid},
+            )
         response.raise_for_status()
 
     except httpx.HTTPError as e:

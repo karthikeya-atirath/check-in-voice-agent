@@ -15,9 +15,11 @@ from livekit.agents.beta.workflows import TaskGroup, TaskCompletedEvent
 from livekit import agents
 from livekit.agents import Agent, AgentTask, AgentSession, AgentServer, RunContext, StopResponse, inference, function_tool, room_io, JobContext, TurnHandlingOptions
 from livekit.agents.job import get_job_context
-from livekit.plugins import silero, ai_coustics, cartesia, deepgram
+from livekit.plugins import silero, ai_coustics
 from pypdf import PdfReader
 from llm_service import get_llm
+from stt_service import get_stt
+from tts_service import get_tts
 
 load_dotenv()
 
@@ -870,8 +872,8 @@ async def entrypoint(ctx : JobContext):
 
     session = AgentSession(
         llm=get_llm(),
-        tts=cartesia.TTS(model="sonic-2"),
-        stt=deepgram.STT(model="nova-2"),
+        tts=get_tts(),
+        stt=get_stt(),
         tools = [weather, answer_faqs, get_package_data, retrieve_customer_trip_pdf, end_call, call_details],
         vad = silero.VAD.load(),
         turn_handling =  TurnHandlingOptions(

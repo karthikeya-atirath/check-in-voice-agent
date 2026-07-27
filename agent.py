@@ -19,12 +19,13 @@ from livekit.plugins import silero, ai_coustics, cartesia, deepgram
 from pypdf import PdfReader
 from llm_service import get_llm
 
-load_dotenv()
+BASE_DIR = Path(__file__).resolve().parent
+load_dotenv(BASE_DIR / ".env")
 
 server = AgentServer()
 
 def load_customer():
-    with open("customer 1.json", "r") as file:
+    with open(BASE_DIR / "customer 1.json", "r") as file:
         return json.load(file)
 
 customer_data = load_customer()
@@ -46,18 +47,19 @@ def find_customer_trip_pdf() -> Path | None:
         if path.exists():
             return path
 
-        project_path = Path.cwd() / path
+        project_path = BASE_DIR / path
         if project_path.exists():
             return project_path
 
-    project_pdfs = sorted(Path.cwd().glob("*.pdf"))
+    project_pdfs = sorted(BASE_DIR.glob("*.pdf"))
     if not project_pdfs:
         return None
 
     tour_name = (customer_data.get("tour_name") or "").strip().lower()
     if tour_name:
         for pdf_path in project_pdfs:
-            if pdf_path.stem.strip().lower() == tour_name:
+            stem = pdf_path.stem.strip().lower()
+            if stem == tour_name or tour_name in stem:
                 return pdf_path
 
     return project_pdfs[0]
@@ -142,7 +144,7 @@ async def answer_faqs(destination: str):
     try:
         async with httpx.AsyncClient(timeout=15) as client:
             response = await client.post(
-                "http://35.200.238.161:8000/v1/get_destination_details",
+                "https://travbridge.atirath.com/v1/get_destination_details",
                 json={"search_term": destination},
             )
 
@@ -167,7 +169,7 @@ async def get_package_data(packageid: str):
     try:
         async with httpx.AsyncClient(timeout=15) as client:
             response = await client.post(
-                "http://35.200.238.161:8000/v1/get_raw_response",
+                "https://travbridge.atirath.com/v1/get_raw_response",
                 json={"packageId": packageid},
             )
         response.raise_for_status()
@@ -505,7 +507,7 @@ class WeatherAndClothingGuidanceTask(InterruptibleTask):
         destination = self.customer.get("destination")
         weather_data = await weather(destination)
 
-        await self.session.say_script(
+        handle = self.session.generate_reply(
             instructions=f"""
             Weather data for {destination}: {weather_data}
             This data is already fetched, do not call the weather tool.
@@ -513,6 +515,7 @@ class WeatherAndClothingGuidanceTask(InterruptibleTask):
             briefly mention the expected weather using this data, then give a clothing or packing suggestion based on it.
             """
         )
+        await handle
     
     @function_tool
     async def complete_task(self) -> None:
@@ -833,7 +836,7 @@ async def save_session_report(ctx: JobContext, reason: str, session=None) -> Non
         "save_reason": reason,
     }
 
-    report_dir = Path("session_reports")
+    report_dir = BASE_DIR / "session_reports"
     report_dir.mkdir(exist_ok=True)
     filename = report_dir / f"{ctx.room.name}_{report_filename}"
 
